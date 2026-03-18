@@ -40,11 +40,11 @@ model.compile(
 
 ## Experiments
 
-### 1. Universal Approximation Verification
+### 1. Continuous-time Function Approximation Verification
 
-Demonstration and verification of NAC’s universal approximation capability.
+Demonstration and verification of NSAC’s CT function approximation capability.
 
-![Universal Approximation Demo](plots/UAT.gif)
+![Universal Approximation Demo](plots/anim.gif)
 
 ---
 
