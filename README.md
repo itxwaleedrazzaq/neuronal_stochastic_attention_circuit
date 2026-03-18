@@ -39,7 +39,7 @@ model.compile(
 
 ### Continuous-time Function Approximation Verification
 
-Demonstration and verification of NSAC’s CT function approximation capability.
+Demonstration and verification of NSAC’s CT function approximation capability with uncertainty.
 
 ![Universal Approximation Demo](plots/anim.gif)
 
