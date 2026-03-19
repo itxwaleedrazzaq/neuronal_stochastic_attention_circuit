@@ -109,7 +109,7 @@ class OUWrap(tf.keras.layers.Layer):
             t_val = tf.cast(t, pair_features.dtype)
             t_expanded = tf.reshape(t_val, [batch_size, 1, seq_len_q, 1, 1])
             
-        t_interp = tf.nn.sigmoid(time_gate_a * t_expanded + time_gate_b)[..., 0]
+        t_interp = tf.nn.sigmoid(-time_gate_a * t_expanded + time_gate_b)[..., 0]
         
         return phi, kappa, psi, t_interp, topk_idx
     
@@ -151,8 +151,6 @@ class OUWrap(tf.keras.layers.Layer):
         phi, kappa, psi, dt, topk_idx = self.compute_phi_kappa_psi_time(qh, kh, t)
 
         # OU Mean and Variance
-        # Mean: phi * (1 - exp(-kappa * t))
-        # Variance: (psi^2 / 2*kappa) * (1 - exp(-2 * kappa * t))
         ou_mean = phi * (1.0 - tf.exp(-kappa * dt))
         ou_var = (psi ** 2) * (1.0 - tf.exp(-2.0 * kappa * dt)) / (2.0 * kappa)
         ou_stddev = tf.sqrt(tf.maximum(ou_var, 1e-9))
