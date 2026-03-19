@@ -13,7 +13,7 @@ from neuronal_stochastic_attention_circuit import NSAC
 
 def stochastic_model_fn():
     inputs = tf.keras.Input(shape=(1, 1))
-    mean, std = OUWrap(
+    mean, log_std = OUWrap(
         NAC(d_model=64, num_heads=16, topk=8, sparsity=0.5),
         output_dim=1,                # Output dimension for regression 
         bn_mean=0.0,                 # Brownian mean
@@ -22,7 +22,7 @@ def stochastic_model_fn():
         return_sequences=False,      # Return full sequences if True, else last output
         return_attention=False,      # Return attention weights if True
         )(inputs)
-    return tf.keras.Model(inputs, [mean, std])
+    return tf.keras.Model(inputs, [mean, log_std])
 
 model = NSAC(stochastic_model_fn(),
              mc_samples=5,           # Monte-Carlo steps 
