@@ -12,20 +12,14 @@ from ouwrap import OUWrap
 from losses import NSACLoss
 from neuronal_stochastic_attention_circuit import NSAC
 
-# --------------------------------------------------
-# Setup
-# --------------------------------------------------
-
+# reproduce
 np.random.seed(42)
 tf.random.set_seed(42)
 
 PLOT_DIR = "plots"
 os.makedirs(PLOT_DIR, exist_ok=True)
 
-# --------------------------------------------------
 # Data
-# --------------------------------------------------
-
 def generate_noisy_spirals(
     n_spirals=200,
     steps=1000,
@@ -36,19 +30,14 @@ def generate_noisy_spirals(
     all_xy = []
 
     for _ in range(n_spirals):
-
         t = np.linspace(0, 2 * np.pi * turns, steps)
         r = t / (2 * np.pi * turns)
-
         x = r * np.cos(t)
         y = r * np.sin(t)
-
         xy = np.stack([x, y], axis=-1)
         xy += np.random.normal(scale=noise_std, size=xy.shape)
-
         all_t.append(t[:, None])
         all_xy.append(xy)
-
     return (
         np.concatenate(all_t, axis=0).astype(np.float32),
         np.concatenate(all_xy, axis=0).astype(np.float32),
@@ -75,60 +64,38 @@ y_true = np.stack(
     axis=-1,
 )
 
-# --------------------------------------------------
 # Prediction storage
-# --------------------------------------------------
-
 predictions_all = {"train": []}
 
-# --------------------------------------------------
 # Callback
-# --------------------------------------------------
-
 class PredictionHistory(tf.keras.callbacks.Callback):
-
     def __init__(self, mode):
         super().__init__()
         self.mode = mode
-
     def on_epoch_end(self, epoch, logs=None):
-
         preds = self.model.predict_with_uncertainty(
             tf.convert_to_tensor(t_plot[:, None, None])
         )
-
         predictions_all[self.mode].append(preds)
 
-# --------------------------------------------------
-# Model
-# --------------------------------------------------
-
+# NSAC
 def model_fn():
-
     inputs = tf.keras.Input(shape=(1, 1))
-
     mean, std = OUWrap(
         NAC(d_model=64, num_heads=16, topk=32, sparsity=0.8),
         output_dim=2,
         activation="sigmoid"
     )(inputs)
-
     return tf.keras.Model(inputs, [mean, std])
-
-
 model = NSAC(stochastic_model_fn=model_fn(), ood_std=5.0)
 
 model.compile(
     optimizer=tf.keras.optimizers.AdamW(5e-8),
     loss=NSACLoss(),
 )
-
 model.summary()
 
-# --------------------------------------------------
 # Train
-# --------------------------------------------------
-
 model.fit(
     t_data[:, None, :],
     y_data,
@@ -139,12 +106,8 @@ model.fit(
     shuffle=True,
 )
 
-# --------------------------------------------------
 # Animation
-# --------------------------------------------------
-
 plt.style.use("seaborn-v0_8-deep")
-
 fig, ax = plt.subplots(figsize=(5, 5))
 ax.set_xlim(-1.1, 1.1)
 ax.set_ylim(-1.1, 1.1)
@@ -168,57 +131,33 @@ total_poly = PolyCollection(
 ax.add_collection(total_poly)
 ax.legend(loc="upper left")
 
-# --------------------------------------------------
 # Update function
-# --------------------------------------------------
-
 def update(frame):
-
     idx = min(frame, len(predictions_all["train"]) - 1)
     mean, aleatoric, epistemic = predictions_all["train"][idx]
-
     mean = np.array(mean).squeeze()
     aleatoric = np.array(aleatoric).squeeze()
     epistemic = np.array(epistemic).squeeze()
-
     mean = np.clip(mean, -1.1, 1.1)
-
-    # -------- Total uncertainty --------
     total_var = np.maximum(aleatoric, 0) + np.maximum(epistemic, 0)
     total_std = np.sqrt(total_var)
-
     radius = np.linalg.norm(total_std, axis=1, keepdims=True)
-
-    # -------- Compute normals --------
     dx = np.gradient(mean[:, 0])
     dy = np.gradient(mean[:, 1])
-
     tangent = np.stack([dx, dy], axis=-1)
     norm = np.linalg.norm(tangent, axis=1, keepdims=True) + 1e-8
     tangent /= norm
-
     normal = np.stack([-tangent[:, 1], tangent[:, 0]], axis=-1)
-
     scale = 1.0  # adjust tube thickness
-
     upper = mean + scale * radius * normal
     lower = mean - scale * radius * normal
-
     verts = np.concatenate([upper, lower[::-1]], axis=0)
-
     total_poly.set_verts([verts])
-
-    # -------- Mean --------
     line_pred.set_data(mean[:, 0], mean[:, 1])
-
     ax.set_title(f"Epoch {idx + 1}")
-
     return [line_pred, total_poly]
 
-# --------------------------------------------------
 # Create animation
-# --------------------------------------------------
-
 ani = FuncAnimation(
     fig,
     update,
