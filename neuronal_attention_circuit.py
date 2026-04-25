@@ -34,6 +34,7 @@ class NAC(tf.keras.layers.Layer):
         dropout: float = 0.0,
         tau_epsilon: float = 1e-6,
         use_bias: bool = True,
+        use_riemann_sum: bool = True,
         return_attention: bool = False,
         return_sequences: bool = False,
         return_cell_state: bool = False,
@@ -54,6 +55,7 @@ class NAC(tf.keras.layers.Layer):
             tau_epsilon: Small constant added to tau for stability
             dropout: Dropout rate for attention weights
             use_bias: Whether to include bias terms in Dense layers
+            use_riemann_sum: Whether to use Riemann sum for output integration (otherwise use standard weighted sum)
             return_attention: If True, call() also returns attention weights
             return_sequences: If False, only the final time step is returned
             return_cell_state: If True, call() also returns membrane potentials
@@ -77,6 +79,7 @@ class NAC(tf.keras.layers.Layer):
         self.dropout_rate = float(dropout)
         self.tau_epsilon = float(tau_epsilon)
         self.use_bias = bool(use_bias)
+        self.use_riemann_sum = bool(use_riemann_sum)
         self.return_attention = bool(return_attention)
         self.return_sequences = bool(return_sequences)
         self.return_cell_state = bool(return_cell_state)
@@ -95,6 +98,7 @@ class NAC(tf.keras.layers.Layer):
         
         # Dropout applied to attention weights
         self.attn_dropout = tf.keras.layers.Dropout(self.dropout_rate)
+
 
         #attention out projection
         self.out_dense = tf.keras.layers.Dense(self.d_model, use_bias=self.use_bias, name="out_proj")
@@ -337,8 +341,10 @@ class NAC(tf.keras.layers.Layer):
         # Gather values corresponding to selected keys
         vh_topk = tf.gather(vh, topk_idx, batch_dims=2, axis=2)
 
-        # Riemann sum integration
-        weighted = attn_weights[..., tf.newaxis] * vh_topk * t_interp[..., tf.newaxis]
+        if self.use_riemann_sum:
+            weighted = attn_weights[..., tf.newaxis] * vh_topk * t_interp[..., tf.newaxis] # Riemann sum integration
+        else: 
+            weighted = attn_weights[..., tf.newaxis] * vh_topk # Standard weighted
         out_per_head = tf.reduce_sum(weighted, axis=3) 
 
         # Combine heads and project output
@@ -486,6 +492,8 @@ class NAC(tf.keras.layers.Layer):
                 "activation": tf.keras.activations.serialize(self.activation),
                 "dropout": self.dropout_rate,
                 "tau_epsilon": self.tau_epsilon,
+                "use_bias": self.use_bias,
+                "use_riemann_sum": self.use_riemann_sum,
                 "return_attention": self.return_attention,
                 "return_sequences": self.return_sequences,
                 "return_cell_state": self.return_cell_state,
