@@ -20,6 +20,7 @@ class OUWrap(tf.keras.layers.Layer):
         activation=None,
         return_attention: bool = False,
         return_sequences: bool = False,
+        return_cell_state: bool = False,
         **kwargs,
     ):
         """
@@ -31,6 +32,7 @@ class OUWrap(tf.keras.layers.Layer):
             activation: Activation function for the hidden state.
             return_attention: Whether to return the attention weight matrix.
             return_sequences: Whether to return the full sequence or the last hidden state.
+            return_cell_state: Whether to return the internal cell state of the NSAC.
         """
         super().__init__(**kwargs)
 
@@ -44,8 +46,12 @@ class OUWrap(tf.keras.layers.Layer):
         self.activation = tf.keras.activations.get(activation)
         self.return_attention = bool(return_attention)
         self.return_sequences = bool(return_sequences)
+        self.return_cell_state = bool(return_cell_state)
 
         # NCP Projection to generate OU parameters: mu, theta, and sigma
+        self.q_proj = self.nac.q_proj
+        self.k_proj = self.nac.k_proj
+        self.v_proj = self.nac.v_proj
         self.ncp_out = self.nac._make_inter_to_motor_projections("ou_out", output=3)
 
         # Standard attention output projection
@@ -190,12 +196,86 @@ class OUWrap(tf.keras.layers.Layer):
         final_mean = self.mean_head(features_mean)
         final_std = self.std_head(features_std)
 
-        # Sequence Handling
+        # Optionally return only the last time step
         if not self.return_sequences:
             final_mean = final_mean[:, -1, :]
             final_std = final_std[:, -1, :]
 
+        # Optionally extract cell voltages
+        cell_voltages = None
+        if self.return_cell_state:
+            cell_voltages = self.cell_state(q_in, k_in, v_in)
+        
+        # Return values based on flags
+        if self.return_attention and cell_voltages is not None:
+            return final_mean, final_std, attn_weights, cell_voltages
+        elif self.return_attention:
+            return final_mean, final_std, attn_weights
+        elif cell_voltages is not None:
+            return final_mean, final_std, cell_voltages
+    
         return final_mean, final_std
+
+
+    def cell_state(self, q_in, k_in, v_in):
+        """
+        Compute cell_state.
+        """
+
+        mmvs = {}
+
+        q_state = None
+        k_state = None
+        v_state = None
+        out_state = [None] * self.nac.num_heads
+
+        qh = self.nac.split_heads(self.nac.q_proj(q_in))
+        kh = self.nac.split_heads(self.nac.k_proj(k_in))
+
+        head_mmvs = []
+
+        for h in range(self.nac.num_heads):
+
+            pair, _ = self.nac.sparse_topk_pairwise(
+                qh[:, h:h+1, :, :],
+                kh[:, h:h+1, :, :],
+                K=self.nac.topk
+            )
+
+            B = tf.shape(pair)[0]
+            Tq = tf.shape(pair)[2]
+            K_eff = tf.shape(pair)[3]
+            D2 = tf.shape(pair)[4]
+
+            sensory_size = tf.cast(self.ncp_out.cell.sensory_size, tf.int32)
+
+            # Conditionally truncate or pad the last dimension
+            pair = tf.cond(
+                D2 > sensory_size,
+                lambda: pair[..., :sensory_size],  # truncate if too large
+                lambda: tf.pad(pair, [[0, 0], [0, 0], [0, 0], [0, 0], [0, sensory_size - D2]])  # pad if too small
+            )
+
+            pair_combined = tf.reduce_mean(
+                tf.reshape(pair, [B, Tq, K_eff, sensory_size]),
+                axis=2
+            )
+
+            mmv, out_state[h] = self.nac.extract_membrane_voltages(
+                self.ncp_out,
+                pair_combined,
+                state=out_state[h]
+            )
+
+            head_mmvs.append(mmv)
+
+        mmvs["ncp_out"] = tf.concat(head_mmvs, axis=-1)
+
+        mmvs["q_proj"], q_state = self.nac.extract_membrane_voltages(self.nac.q_proj, q_in, state=q_state)
+        mmvs["k_proj"], k_state = self.nac.extract_membrane_voltages(self.nac.k_proj, k_in, state=k_state)
+        mmvs["v_proj"], v_state = self.nac.extract_membrane_voltages(self.nac.v_proj, v_in, state=v_state)
+
+        return mmvs
 
     def get_config(self):
         config = super().get_config()
@@ -206,5 +286,6 @@ class OUWrap(tf.keras.layers.Layer):
             "bn_std": self.bn_std,
             "return_attention": self.return_attention,
             "return_sequences": self.return_sequences,
+            "return_cell_state": self.return_cell_state
         })
         return config
