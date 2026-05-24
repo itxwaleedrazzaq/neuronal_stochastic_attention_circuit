@@ -14,12 +14,12 @@ class NSACLoss:
 
         id_samples, ood_samples = y_pred
 
-        # MC samples
+        # Stack MC samples
         mu_id = tf.stack([p[0] for p in id_samples])
         std_id = tf.stack([p[1] for p in id_samples])
         mu_ood = tf.stack([p[0] for p in ood_samples])
 
-        # NLL 
+        # NLL using mean prediction
         var_id = tf.square(tf.exp(std_id)) + self.epsilon
         mu_mean = tf.reduce_mean(mu_id, axis=0)
         var_mean = tf.reduce_mean(var_id, axis=0)
@@ -40,6 +40,28 @@ class NSACLoss:
 
         return total_loss, nll_loss, reg_loss
     
+
+class GaussianNLL:
+    def __init__(self, epsilon=1e-2, name="gaussian_nll"):
+        self.epsilon = epsilon
+
+    def __call__(self, y_true, y_pred):
+        mu, log_std = y_pred
+
+        # assume std_id is log(sigma)
+        log_std = tf.clip_by_value(log_std, -10.0, 5.0)
+        var = tf.exp(2.0 * log_std)
+
+        nll = 0.5 * (
+            tf.math.log(2.0 * math.pi) +
+            tf.math.log(var) +
+            tf.square(y_true - mu) / var
+        )
+
+
+        return tf.reduce_mean(nll), tf.reduce_mean(nll), tf.constant(0.0,dtype=tf.float32)
+    
+
 class NLL:
     def __init__(self, epsilon=1e-2, name="gaussian_nll"):
         self.epsilon = epsilon
