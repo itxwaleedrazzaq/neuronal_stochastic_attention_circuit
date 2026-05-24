@@ -1,3 +1,4 @@
+#this code is taken from https://github.com/itxwaleedrazzaq/neuronal_attention_circuit 
 import math
 import numpy as np
 import tensorflow as tf
