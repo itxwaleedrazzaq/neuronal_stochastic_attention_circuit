@@ -48,14 +48,3 @@ Demonstration and verification of NSAC’s CT function approximation capability 
 
 
 
-## Citation
-If you use this work please cite.
-```bibtex
-@article{razzaq2025neuronal,
-  title={Neuronal Attention Circuit (NAC) for Representation Learning},
-  author={Razzaq, Waleed and Kanjaraway, Izis and Zhao, Yun-Bo},
-  journal={arXiv preprint arXiv:2512.10282},
-  year={2025}
-}
-
-
