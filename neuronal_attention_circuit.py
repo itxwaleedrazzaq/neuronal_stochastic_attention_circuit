@@ -342,9 +342,11 @@ class NAC(tf.keras.layers.Layer):
         vh_topk = tf.gather(vh, topk_idx, batch_dims=2, axis=2)
 
         if self.use_riemann_sum:
-            weighted = attn_weights[..., tf.newaxis] * vh_topk * t_interp[..., tf.newaxis] # Riemann sum integration
+            # Riemann sum integration
+            weighted = attn_weights[..., tf.newaxis] * vh_topk * t_interp[..., tf.newaxis]
         else: 
-            weighted = attn_weights[..., tf.newaxis] * vh_topk # Standard weighted
+            # Standard weighted sum
+            weighted = attn_weights[..., tf.newaxis] * vh_topk
         out_per_head = tf.reduce_sum(weighted, axis=3) 
 
         # Combine heads and project output
