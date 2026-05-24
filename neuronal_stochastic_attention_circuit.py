@@ -13,7 +13,7 @@ class NSAC(tf.keras.Model):
     def __init__(
         self,
         stochastic_model_fn,
-        mc_samples: int = 5,
+        mc_samples: int = 20,
         ood_mean: float = 0.0,
         ood_std: float = 1.0,
         **kwargs
@@ -80,7 +80,7 @@ class NSAC(tf.keras.Model):
 
         x_ood = x_id + tf.random.normal(
             shape=tf.shape(x_id),
-            mean=0.0,
+            mean=self.ood_mean,
             stddev=self.ood_std,
             dtype=x_id.dtype
         )
@@ -141,9 +141,7 @@ class NSAC(tf.keras.Model):
         mu, log_std = self.stochastic_circuit(X_test, training=False)
         std = tf.exp(log_std)
 
-        mu_mean = tf.reduce_mean(mu).numpy()
-        std_mean = tf.reduce_mean(std).numpy()
-        mse_value = tf.reduce_mean(tf.square(y_test - mu)).numpy()
+        mse_value = tf.reduce_mean(tf.square(y_test - mu))
 
         results = super().evaluate(
             X_test,
@@ -152,8 +150,9 @@ class NSAC(tf.keras.Model):
             verbose=0
         )
         nll_value = float(results["nll"])
-        return mu_mean, std_mean, nll_value, mse_value
 
+        # Return full arrays for metrics
+        return mu.numpy(), std.numpy(), nll_value, mse_value.numpy()
 
     def get_config(self):
         config = super().get_config()
