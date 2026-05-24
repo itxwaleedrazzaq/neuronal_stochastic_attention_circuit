@@ -1,6 +1,6 @@
 # Neuronal Stochastic Attention Circuit (NSAC)
 ---
-The repository contains the code of the Neuronal Stochastic Attention Circuit (NSAC).
+The repository contains the code of the "Neuronal Stochastic Attention Circuit (NSAC) for Probabilistic Representation Learning".
 
 ## NSAC Model Usage Example
 
