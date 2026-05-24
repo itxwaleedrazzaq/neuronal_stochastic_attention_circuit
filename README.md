@@ -21,6 +21,7 @@ def stochastic_model_fn():
         activation='sigmoid',        # Activation function
         return_sequences=False,      # Return full sequences if True, else last output
         return_attention=False,      # Return attention weights if True
+        return_cell_state=False,     # Return cell potentials if True
         )(inputs)
     return tf.keras.Model(inputs, [mean, log_std])
 
