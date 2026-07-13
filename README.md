@@ -15,7 +15,6 @@ This repository contains the original code used for the reproducible experiments
 - **PyPI:** https://pypi.org/project/torch-nac/
 
 ```
-## Experiments
 
 ### Continuous-time Function Approximation Verification
 
