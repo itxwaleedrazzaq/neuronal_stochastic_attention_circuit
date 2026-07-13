@@ -1,42 +1,21 @@
 # Neuronal Stochastic Attention Circuit (NSAC)
 ---
-The repository contains the code of the "Neuronal Stochastic Attention Circuit (NSAC) for Probabilistic Representation Learning".
+This repository contains the original code used for the reproducible experiments presented in the paper **"Neuronal Stochastic Attention Circuit (NSAC) for Probabilistic Representation Learning"**.
 
-## NSAC Model Usage Example
+> **Note:** This repository is no longer actively maintained and has been **deprecated**. The NSAC implementation has been moved to dedicated, actively maintained libraries for both TensorFlow and PyTorch.
 
-```python
-import tensorflow as tf
-from ouwrap import OUWrap
-from losses import NSACLoss
-from neuronal_attention_circuit import NAC
-from neuronal_stochastic_attention_circuit import NSAC
+## TensorFlow
 
-def stochastic_model_fn():
-    inputs = tf.keras.Input(shape=(1, 1))
-    mean, log_std = OUWrap(
-        NAC(d_model=64, num_heads=16, topk=8, sparsity=0.5),
-        output_dim=1,                # Output dimension for regression 
-        bn_mean=0.0,                 # Brownian mean
-        bn_std=0.1,                  # Brownian standard deviation
-        activation='sigmoid',        # Activation function
-        return_sequences=False,      # Return full sequences if True, else last output
-        return_attention=False,      # Return attention weights if True
-        return_cell_state=False,     # Return cell potentials if True
-        )(inputs)
-    return tf.keras.Model(inputs, [mean, log_std])
+- **GitHub:** https://github.com/itxwaleedrazzaq/keras-nac
+- **PyPI:** https://pypi.org/project/keras-nac/
 
-model = NSAC(stochastic_model_fn(),
-             mc_samples=5,           # Monte-Carlo steps 
-             ood_mean=0.0,           # OOD generating noise mean 
-             ood_std=5.0             # OOD generating noise standard deviation
-             )
+## PyTorch
 
-model.compile(
-    optimizer=tf.keras.optimizers.AdamW(1e-3),
-    loss=NSACLoss(),
-)
+- **GitHub:** https://github.com/itxwaleedrazzaq/torch-nac
+- **PyPI:** https://pypi.org/project/torch-nac/
 
 ```
+## Experiments
 
 ### Continuous-time Function Approximation Verification
 
